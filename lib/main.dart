@@ -289,10 +289,10 @@ class _HomePageState extends State<HomePage> {
 
     return Scaffold(
       backgroundColor: colorScheme.background,
-      floatingActionButton: FloatingActionButton(
-        child:  Icon(Icons.photo, color: Colors.white),
-        onPressed: (){ },
-      ),
+      // floatingActionButton: FloatingActionButton(
+      //   child:  Icon(Icons.photo, color: Colors.white),
+      //   onPressed: (){ },
+      // ),
       appBar: AppBar(
         title: Text(
           'ID Card Processor',
@@ -407,7 +407,7 @@ class _HomePageState extends State<HomePage> {
           ),
           const SizedBox(height: 12),
           Text(
-            'Extract and manage ID card information efficiently with our advanced processing system',
+            'Extract and manage ID card information with our processing system',
             style: GoogleFonts.poppins(
               fontSize: 15,
               height: 1.6,
