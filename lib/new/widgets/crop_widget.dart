@@ -1,6 +1,10 @@
+import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:image/image.dart' as img;
+import 'package:image_picker/image_picker.dart';
+
+import '../services/image_utils.dart';
 
 class SmartCropWidget extends StatefulWidget {
   final Uint8List imageBytes;
@@ -18,6 +22,10 @@ class SmartCropWidget extends StatefulWidget {
 
 class _SmartCropWidgetState extends State<SmartCropWidget> {
   late img.Image originalImage;
+  late Uint8List currentImageBytes;
+  late Uint8List originalImageBytes; // Store original for cropping
+
+  bool _isProcessing = false;
   Rect cropRect = Rect.zero;
   double scale = 1.0;
   Size? imageDisplaySize;
@@ -25,10 +33,36 @@ class _SmartCropWidgetState extends State<SmartCropWidget> {
   @override
   void initState() {
     super.initState();
-    originalImage = img.decodeImage(widget.imageBytes)!;
+    currentImageBytes = widget.imageBytes;
+    originalImageBytes = widget.imageBytes; // Store original
+    originalImage = img.decodeImage(currentImageBytes)!;
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _initCropRect();
     });
+  }
+
+  Future<void> _pickFromGallery() async {
+    final picker = ImagePicker();
+    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+
+    if (pickedFile != null) {
+      final bytes = await File(pickedFile.path).readAsBytes();
+      final decoded = img.decodeImage(bytes);
+      if (decoded == null) return;
+
+      setState(() {
+        currentImageBytes = bytes;
+        originalImageBytes = bytes; // Update original bytes
+        originalImage = decoded;
+        cropRect = Rect.zero;
+        imageDisplaySize = null;
+      });
+
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _initCropRect();
+      });
+    }
   }
 
   void _initCropRect() {
@@ -54,10 +88,46 @@ class _SmartCropWidgetState extends State<SmartCropWidget> {
     });
   }
 
+
+  Future<void> _cropImage() async {
+    setState(() {
+      _isProcessing = true;
+    });
+
+    try {
+      final cropped = img.copyCrop(
+        originalImage,
+        x: cropRect.left.toInt(),
+        y: cropRect.top.toInt(),
+        width: cropRect.width.toInt(),
+        height: cropRect.height.toInt(),
+      );
+
+      final croppedBytes = Uint8List.fromList(img.encodePng(cropped));
+
+      final bgRemovedBytes = await ImageUtils.removeBackgroundUint8(
+        croppedBytes,
+        convertToGrayscale: false,
+      );
+
+      widget.onCropped(bgRemovedBytes);
+      Navigator.pop(context);
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Processing failed")),
+      );
+    } finally {
+      setState(() {
+        _isProcessing = false;
+      });
+    }
+  }
   @override
   Widget build(BuildContext context) {
     if (imageDisplaySize == null) {
-      return const Center(child: CircularProgressIndicator());
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
     }
 
     final maxWidth = originalImage.width.toDouble();
@@ -69,18 +139,23 @@ class _SmartCropWidgetState extends State<SmartCropWidget> {
           "Crop Image",
           style: TextStyle(color: Colors.white),
         ),
-        backgroundColor: Colors.blue, // AppBar theme green
+        backgroundColor: Colors.blue,
         actions: [
+
           TextButton(
             onPressed: _cropImage,
             child: Container(
-              width: 50,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(20),
-                  color: Colors.white
-                ),
-                child:
-                    const Text("  Crop", style: TextStyle(color: Colors.blue))),
+              width: 60,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(20),
+                color: Colors.white,
+              ),
+              child: const Text(
+                "Crop",
+                style: TextStyle(color: Colors.blue),
+              ),
+            ),
           ),
         ],
       ),
@@ -88,21 +163,27 @@ class _SmartCropWidgetState extends State<SmartCropWidget> {
         child: Stack(
           alignment: Alignment.center,
           children: [
+            // ✅ FIX: use currentImageBytes
             Image.memory(
-              widget.imageBytes,
+              currentImageBytes,
               width: imageDisplaySize!.width,
               height: imageDisplaySize!.height,
               fit: BoxFit.contain,
             ),
+
             Positioned(
               left: 0,
               top: 0,
               width: imageDisplaySize!.width,
               height: imageDisplaySize!.height,
               child: CustomPaint(
-                painter: CropOverlayPainter(cropRect: cropRect, scale: scale),
+                painter: CropOverlayPainter(
+                  cropRect: cropRect,
+                  scale: scale,
+                ),
               ),
             ),
+
             Positioned(
               left: cropRect.left * scale,
               top: cropRect.top * scale,
@@ -115,6 +196,7 @@ class _SmartCropWidgetState extends State<SmartCropWidget> {
                         .clamp(0, maxWidth - cropRect.width);
                     double newTop = (cropRect.top + details.delta.dy / scale)
                         .clamp(0, maxHeight - cropRect.height);
+
                     cropRect = Rect.fromLTWH(
                         newLeft, newTop, cropRect.width, cropRect.height);
                   });
@@ -123,9 +205,7 @@ class _SmartCropWidgetState extends State<SmartCropWidget> {
                   children: [
                     Container(
                       decoration: BoxDecoration(
-                        border: Border.all(
-                            color: Colors.green, width: 2), // green border
-                        color: Colors.transparent,
+                        border: Border.all(color: Colors.green, width: 2),
                       ),
                     ),
                     _buildHandle(Alignment.topLeft, maxWidth, maxHeight),
@@ -142,7 +222,8 @@ class _SmartCropWidgetState extends State<SmartCropWidget> {
     );
   }
 
-  Widget _buildHandle(Alignment alignment, double maxWidth, double maxHeight) {
+  Widget _buildHandle(
+      Alignment alignment, double maxWidth, double maxHeight) {
     return Align(
       alignment: alignment,
       child: GestureDetector(
@@ -184,7 +265,7 @@ class _SmartCropWidgetState extends State<SmartCropWidget> {
           width: 20,
           height: 20,
           decoration: BoxDecoration(
-            color: Colors.green, // green handles
+            color: Colors.green,
             borderRadius: BorderRadius.circular(4),
           ),
         ),
@@ -192,18 +273,10 @@ class _SmartCropWidgetState extends State<SmartCropWidget> {
     );
   }
 
-  void _cropImage() {
-    final cropped = img.copyCrop(
-      originalImage,
-      x: cropRect.left.toInt(),
-      y: cropRect.top.toInt(),
-      width: cropRect.width.toInt(),
-      height: cropRect.height.toInt(),
-    );
-    widget.onCropped(Uint8List.fromList(img.encodePng(cropped)));
-    Navigator.pop(context);
-  }
+
+
 }
+
 
 class CropOverlayPainter extends CustomPainter {
   final Rect cropRect;

@@ -133,7 +133,7 @@ class MyApp extends StatelessWidget {
             shadowColor: const Color(0xFF0066FF).withOpacity(0.3),
           ),
         ),
-        cardTheme: CardTheme(
+        cardTheme: CardThemeData(
           color: Colors.white,
           elevation: 6,
           shadowColor: Colors.black.withOpacity(0.1),
@@ -215,6 +215,7 @@ class _HomePageState extends State<HomePage> {
         'fan': controller.fan.text,
         'fon': controller.fon.text,
         'amCountry': controller.amCountry.text,
+        'enCountry': controller.enCountry.text,
         'amRegion': controller.amRegion.text,
         'enRegion': controller.enRegion.text,
         'amCity': controller.amCity.text,
@@ -280,6 +281,7 @@ class _HomePageState extends State<HomePage> {
     super.dispose();
   }
 
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -287,6 +289,10 @@ class _HomePageState extends State<HomePage> {
 
     return Scaffold(
       backgroundColor: colorScheme.background,
+      floatingActionButton: FloatingActionButton(
+        child:  Icon(Icons.photo, color: Colors.white),
+        onPressed: (){ },
+      ),
       appBar: AppBar(
         title: Text(
           'ID Card Processor',
@@ -754,7 +760,66 @@ class _HomePageState extends State<HomePage> {
             ],
           ),
 
-          const SizedBox(height: 6),
+          const SizedBox(height: 16),
+          // Grayscale Toggle
+          Container(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.photo_filter, color: const Color(0xFF0066FF), size: 18),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Photo Mode',
+                      style: GoogleFonts.poppins(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xFF475569),
+                      ),
+                    ),
+                  ],
+                ),
+                Row(
+                  children: [
+                    Text(
+                      'Color',
+                      style: GoogleFonts.poppins(
+                        fontSize: 12,
+                        color: !controller.isGrayscale.value
+                            ? const Color(0xFF0066FF)
+                            : const Color(0xFF94A3B8),
+                      ),
+                    ),
+                    Obx(() => Switch(
+                      value: controller.isGrayscale.value,
+                      onChanged: (value) {
+                        controller.isGrayscale.value = value;
+                        // Force rebuild of the card preview
+                        setState(() {});
+                        if (_cardPreviewKey.currentState != null) {
+                          _cardPreviewKey.currentState!.setState(() {});
+                        }
+                      },
+                      activeColor: const Color(0xFF0066FF),
+                    )),
+                    Text(
+                      'Gray',
+                      style: GoogleFonts.poppins(
+                        fontSize: 12,
+                        color: controller.isGrayscale.value
+                            ? const Color(0xFF0066FF)
+                            : const Color(0xFF94A3B8),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 16),
 
           Obx(() => Column(
             children: [

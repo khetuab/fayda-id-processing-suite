@@ -7,7 +7,8 @@ plugins {
 android {
     namespace "com.example.idmaf"
 
-    compileSdk rootProject.ext.compileSdkVersion
+    // ✅ FIXED: set directly (was using rootProject.ext)
+    compileSdk 36
 
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_1_8
@@ -17,11 +18,15 @@ android {
     kotlinOptions {
         jvmTarget = "1.8"
     }
+
     defaultConfig {
         applicationId "com.example.idmaf"
 
-        minSdk rootProject.ext.minSdkVersion
-        targetSdk rootProject.ext.targetSdkVersion
+        // ✅ FIXED: Flutter requires at least 23
+        minSdkVersion flutter.minSdkVersion
+
+        // ✅ Recommended
+        targetSdk 36
 
         versionCode flutter.versionCode
         versionName flutter.versionName
@@ -29,17 +34,15 @@ android {
 
     buildTypes {
         release {
-//            ndk {
-//                abiFilters = ['arm64-v8a']
-//            }
+            ndk {
+                abiFilters = ['arm64-v8a']
+            }
             minifyEnabled = true
             shrinkResources = true
-            // proguardFiles  getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
             signingConfig = signingConfigs.debug
         }
     }
 }
-
 
 flutter {
     source "../.."

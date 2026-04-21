@@ -19,6 +19,26 @@ class _FormPageState extends State<FormPage> {
   late final IDCardModel idData;
   final FormController controller = Get.find<FormController>();
 
+  List<String> _getAllEnglishSubcities() {
+    List<String> allSubcities = [];
+    EthiopiaLocationData.regions.forEach((region, cities) {
+      cities.forEach((city, subcities) {
+        allSubcities.addAll(subcities);
+      });
+    });
+    return allSubcities.toSet().toList(); // Remove duplicates
+  }
+
+  List<String> _getAllAmharicSubcities() {
+    List<String> allSubcities = [];
+    EthiopiaLocationData.amregions.forEach((region, cities) {
+      cities.forEach((city, subcities) {
+        allSubcities.addAll(subcities);
+      });
+    });
+    return allSubcities.toSet().toList(); // Remove duplicates
+  }
+
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
@@ -148,12 +168,8 @@ class _FormPageState extends State<FormPage> {
           icon: Icons.map,
           items: EthiopiaLocationData.country,
           hint: 'Select or type Country',
-          onChanged: (region) {
-            // When region changes, clear city & subcity
-            formController.amRegion.clear();
-            formController.amCity.clear();
-            formController.amSubcity.clear();
-          },
+          onChanged: (_) {},
+          // Removed onChanged that was clearing other fields
         ),
         SizedBox(height: 12),
         _buildDropdownField(
@@ -162,34 +178,29 @@ class _FormPageState extends State<FormPage> {
           icon: Icons.map,
           items: EthiopiaLocationData.getamRegions(),
           hint: 'Select or type region',
-          onChanged: (region) {
-            // When region changes, clear city & subcity
-            formController.amCity.clear();
-            formController.amSubcity.clear();
-          },
+          onChanged: (_) {},
+          // Removed onChanged that was clearing city and subcity
         ),
         SizedBox(height: 12),
         _buildDropdownField(
           label: 'Amharic City',
           controller: formController.amCity,
           icon: Icons.location_city,
-          items: EthiopiaLocationData.getamCities(formController.amRegion.text),
+          // Show all cities regardless of selected region
+          items: EthiopiaLocationData.getAllCitiesam(),
           hint: 'Select or type city',
-          onChanged: (city) {
-            formController.amSubcity.clear();
-          },
+          onChanged: (_) {},
+          // Removed onChanged that was clearing subcity
         ),
         SizedBox(height: 12),
         _buildDropdownField(
           label: 'Amharic Subcity',
           controller: formController.amSubcity,
           icon: Icons.location_on,
-          items: EthiopiaLocationData.getamSubCities(
-            formController.amRegion.text,
-            formController.amCity.text,
-          ),
-          hint: 'Select or type subcity',
           onChanged: (_) {},
+          items: _getAllAmharicSubcities(),
+          hint: 'Select or type subcity',
+          // Removed onChanged
         ),
       ],
     );
@@ -213,42 +224,47 @@ class _FormPageState extends State<FormPage> {
         ),
         SizedBox(height: 12),
         _buildDropdownField(
+          label: 'English Country',
+          controller: formController.enCountry,
+          icon: Icons.camera_outdoor_rounded,
+          items: EthiopiaLocationData.countryen,
+          hint: 'Select or type country',
+          onChanged: (_) {},
+          // Removed onChanged that was clearing other fields
+        ),
+        SizedBox(height: 12),
+        _buildDropdownField(
           label: 'English Region',
           controller: formController.enRegion,
           icon: Icons.map,
           items: EthiopiaLocationData.getRegions(),
           hint: 'Select or type region',
-          onChanged: (region) {
-            formController.enCity.clear();
-            formController.enSubcity.clear();
-          },
+          onChanged: (_) {},
+          // Removed onChanged that was clearing city and subcity
         ),
         SizedBox(height: 12),
         _buildDropdownField(
           label: 'English City',
           controller: formController.enCity,
           icon: Icons.location_city,
-          items: EthiopiaLocationData.getCities(formController.enRegion.text),
+          // Show all cities regardless of selected region
+          items: EthiopiaLocationData.getAllCities(),
           hint: 'Select or type city',
-          onChanged: (city) {
-            formController.enSubcity.clear();
-          },
+          onChanged: (_) {},
+          // Removed onChanged that was clearing subcity
         ),
         SizedBox(height: 12),
         _buildDropdownField(
           label: 'English Subcity',
           controller: formController.enSubcity,
           icon: Icons.location_on,
-          items: EthiopiaLocationData.getSubCities(
-            formController.enRegion.text,
-            formController.enCity.text,
-          ),
-          hint: 'Select or type subcity',
+          // You might need to modify this to get all subcities
+          // This depends on how your data is structured
+          items: _getAllEnglishSubcities(),
           onChanged: (_) {},
+          hint: 'Select or type subcity',
+          // Removed onChanged
         ),
-
-
-
       ],
     );
   }

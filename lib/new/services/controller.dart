@@ -12,6 +12,7 @@ class FormController extends GetxController {
   // TextEditingControllers
   TextEditingController amName = TextEditingController();
   TextEditingController amCountry = TextEditingController();
+  TextEditingController enCountry = TextEditingController();
   TextEditingController amRegion = TextEditingController();
   TextEditingController enRegion = TextEditingController();
   TextEditingController amCity = TextEditingController();
@@ -138,6 +139,7 @@ class FormController extends GetxController {
     fon.clear();
     amName.clear();
     amCountry.clear();
+    enCountry.clear();
     amRegion.clear();
     // Add to clearAllFields method:
     gregorianIssueDate.clear();
@@ -170,6 +172,7 @@ class FormController extends GetxController {
     fan.dispose();
     fon.dispose();
     amCountry.dispose();
+    enCountry.dispose();
     amRegion.dispose();
     enRegion.dispose();
     amCity.dispose();

@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../main.dart';
 import '../models/passser.dart';
+import '../services/device_verification_service.dart';
 
 class PasswordEntryScreenc extends StatefulWidget {
   const PasswordEntryScreenc({Key? key}) : super(key: key);
@@ -12,35 +14,82 @@ class PasswordEntryScreenc extends StatefulWidget {
 }
 
 class _PasswordEntryScreenState extends State<PasswordEntryScreenc>
-    with SingleTickerProviderStateMixin {  // ADD THIS MIXIN
+    with SingleTickerProviderStateMixin {
   final CloudPasswordService _passwordService = CloudPasswordService();
+  final DeviceIdService _deviceIdService = DeviceIdService(); // Add this
   final TextEditingController _passwordController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
   bool _isLoading = false;
   bool _obscureText = true;
   String _errorMessage = '';
-  late AnimationController _animationController;  // Declare animation controller
+  late AnimationController _animationController;
 
   @override
   void initState() {
     super.initState();
-    // Initialize animation controller
     _animationController = AnimationController(
       duration: const Duration(milliseconds: 100),
-      vsync: this,  // Now 'this' works because we have the mixin
+      vsync: this,
     );
   }
 
   @override
   void dispose() {
-    _animationController.dispose();  // Don't forget to dispose
+    _animationController.dispose();
     _passwordController.dispose();
     super.dispose();
   }
 
+  void _showDeviceId() async {
+    final deviceIdService = DeviceIdService();
+    final deviceId = await deviceIdService.getDeviceId();
+    //final deviceInfo = await deviceIdService.getDeviceInfo();
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Device Information'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Device ID: $deviceId'),
+            const SizedBox(height: 8),
+            //Text('Device Info: ${deviceInfo['manufacturer']} ${deviceInfo['model']}'),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Clipboard.setData(ClipboardData(text: deviceId));
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Device ID copied to clipboard')),
+              );
+              Navigator.pop(context);
+            },
+            child: const Text('Copy ID'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      appBar: AppBar(
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.info_outline),
+            onPressed: _showDeviceId,
+            tooltip: 'Device Info',
+          ),
+          // ... other actions
+        ],
+      ),
       backgroundColor: const Color(0xFFF8FAFC),
       body: SafeArea(
         child: Center(
@@ -52,7 +101,6 @@ class _PasswordEntryScreenState extends State<PasswordEntryScreenc>
               children: [
                 _buildAppIcon(),
                 const SizedBox(height: 40),
-
                 Text(
                   'Welcome Back',
                   style: GoogleFonts.poppins(
@@ -64,7 +112,6 @@ class _PasswordEntryScreenState extends State<PasswordEntryScreenc>
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 12),
-
                 Text(
                   'Enter your access password to continue',
                   style: GoogleFonts.poppins(
@@ -75,12 +122,9 @@ class _PasswordEntryScreenState extends State<PasswordEntryScreenc>
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 48),
-
                 _buildPasswordForm(),
                 const SizedBox(height: 32),
-
                 _buildActionButton(),
-
                 if (_errorMessage.isNotEmpty) ...[
                   const SizedBox(height: 24),
                   _buildErrorMessage(),
@@ -115,14 +159,12 @@ class _PasswordEntryScreenState extends State<PasswordEntryScreenc>
       child: Stack(
         alignment: Alignment.center,
         children: [
-          // Background pattern
           Container(
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               border: Border.all(color: Colors.white.withOpacity(0.2), width: 1),
             ),
           ),
-          // Outer ring
           Container(
             width: 130,
             height: 130,
@@ -131,7 +173,6 @@ class _PasswordEntryScreenState extends State<PasswordEntryScreenc>
               border: Border.all(color: Colors.white.withOpacity(0.3), width: 2),
             ),
           ),
-          // Main icon
           const Icon(
             Icons.lock_outline_rounded,
             size: 56,
@@ -346,7 +387,6 @@ class _PasswordEntryScreenState extends State<PasswordEntryScreenc>
   Future<void> _handlePassword() async {
     if (!_formKey.currentState!.validate()) return;
 
-    // Dismiss keyboard
     FocusScope.of(context).unfocus();
 
     setState(() {
@@ -355,36 +395,50 @@ class _PasswordEntryScreenState extends State<PasswordEntryScreenc>
     });
 
     try {
-      // 🟢 Fetch password and active status from cloud
+      // STEP 1: Fetch password and allowed device IDs from Google Sheets
       await _passwordService.fetch();
 
+      // STEP 2: Check if app is active
       if (!_passwordService.active) {
         setState(() {
-          _errorMessage =
-          'Access to this app has been disabled by the administrator. Please contact support.';
+          _errorMessage = 'Access to this app has been disabled by the administrator. Please contact support.';
         });
         return;
       }
 
-      // ✅ Verify entered password
+      // STEP 3: Verify entered password
       final isValid = _passwordService.verify(_passwordController.text);
 
-      if (isValid) {
-        // Add a slight delay for smooth transition
-        await Future.delayed(const Duration(milliseconds: 300));
-        Get.offAll(() => const HomePage());
-      } else {
-        // Shake animation effect
+      if (!isValid) {
         _triggerErrorShake();
         setState(() {
           _errorMessage = 'Incorrect password. Please try again.';
           _passwordController.clear();
         });
+        return;
       }
+
+      // STEP 4: Get current device ID and verify against allowed list
+      final currentDeviceId = await _deviceIdService.getDeviceId();
+      print('🔍 Current device ID: $currentDeviceId');
+
+      final isDeviceAllowed = _passwordService.verifyDevice(currentDeviceId);
+
+      if (!isDeviceAllowed) {
+        setState(() {
+          _errorMessage = 'This device is not authorized to use this application. Please contact the administrator to register your device.\n\nDevice ID: $currentDeviceId';
+        });
+        return;
+      }
+
+      // All checks passed - proceed to home page
+      await Future.delayed(const Duration(milliseconds: 300));
+      Get.offAll(() => const HomePage());
+
     } catch (e) {
+      print('💥 Error in _handlePassword: $e');
       setState(() {
-        _errorMessage =
-        'Unable to connect to server. Please check your internet connection and try again.';
+        _errorMessage = 'Unable to connect to server. Please check your internet connection and try again.';
       });
     } finally {
       setState(() {

@@ -3,8 +3,8 @@ import 'dart:typed_data';
 import 'package:flutter/services.dart';
 import 'package:idmaf/new/services/face_service.dart';
 import 'package:idmaf/new/services/tesseract_amharic_ocr.dart';
-import 'package:pdf_render/pdf_render.dart';
 import 'package:image/image.dart' as img;
+import 'package:pdfx/pdfx.dart';
 import 'bc_service.dart';
 import 'controller.dart';
 import 'ocr_service.dart';
@@ -37,46 +37,27 @@ class PdfProcessor {
         double dpi = 100.0,
       }) async {
     final doc = await PdfDocument.openFile(pdfFile.path);
+
     try {
-      // get the page
       final page = await doc.getPage(pageNumber);
-
-      // scale from 72 DPI (PDF points) to requested DPI
       final scale = dpi / 72.0;
-      final fullWidth = (page.width * scale).toInt();
-      final fullHeight = (page.height * scale).toInt();
+      final width = (page.width * scale).toInt();
+      final height = (page.height * scale).toInt();
 
-      // render the full page (x/y = 0, width/height = fullWidth/fullHeight)
       final pageImage = await page.render(
-        x: 0,
-        y: 0,
-        width: fullWidth,
-        height: fullHeight,
-        fullWidth: fullWidth.toDouble(),
-        fullHeight: fullHeight.toDouble(),
-        backgroundFill: true,
+        backgroundColor: '#FFFFFF',
+        width: width.toDouble(),
+        height: height.toDouble(),
+        format: PdfPageImageFormat.png,
       );
 
-      final pixels = pageImage.pixels;
-      final w = pageImage.width;
-      final h = pageImage.height;
-
-      final im = img.Image.fromBytes(
-        width: w,
-        height: h,
-        bytes: pixels.buffer, // ByteBuffer required by Image.fromBytes
-        order: img.ChannelOrder.rgba,
-      );
-
-      // Encode to PNG bytes
-      final pngBytes = img.encodePng(im);
-      await doc.dispose();
-
-      return Uint8List.fromList(pngBytes);
+      final bytes = pageImage!.bytes;
+      await page.close();
+      await doc.close();
+      return bytes;
     } catch (e) {
-      // Ensure document is disposed on error too
       try {
-        await doc.dispose();
+        await doc.close();
       } catch (_) {}
       rethrow;
     }
@@ -186,32 +167,32 @@ class PdfProcessor {
     return null;
   }
 
-  // Future<void> saveImageToGallery(Uint8List bytes, String fileName) async {
-  //   try {
-  //     Directory? directory;
-  //
-  //     if (Platform.isAndroid) {
-  //       directory = Directory('/storage/emulated/0/Pictures');
-  //     } else {
-  //       directory = await getApplicationDocumentsDirectory();
-  //     }
-  //
-  //     if (!await directory.exists()) {
-  //       await directory.create(recursive: true);
-  //     }
-  //
-  //     final filePath =
-  //         '${directory.path}/$fileName${DateTime.now().millisecondsSinceEpoch}.png';
-  //
-  //     final file = File(filePath);
-  //     await file.writeAsBytes(bytes);
-  //
-  //     print('✅ Image saved to: $filePath');
-  //   } catch (e) {
-  //     print('❌ Error saving image: $e');
-  //   }
-  // }
-  //
+  Future<void> saveImageToGallery(Uint8List bytes, String fileName) async {
+    try {
+      Directory? directory;
+
+      if (Platform.isAndroid) {
+        directory = Directory('/storage/emulated/0/Pictures');
+      } else {
+        directory = await getApplicationDocumentsDirectory();
+      }
+
+      if (!await directory.exists()) {
+        await directory.create(recursive: true);
+      }
+
+      final filePath =
+          '${directory.path}/$fileName${DateTime.now().millisecondsSinceEpoch}.png';
+
+      final file = File(filePath);
+      await file.writeAsBytes(bytes);
+
+      print('✅ Image saved to: $filePath');
+    } catch (e) {
+      print('❌ Error saving image: $e');
+    }
+  }
+
 
   Map<String, String>? _extractDatePair(String text) {
     final exactPattern = RegExp(r'(\d{4}/\d{2}/\d{2})\|(\d{4}/[A-Za-z]{3}/\d{2})');
@@ -311,9 +292,7 @@ class PdfProcessor {
     final dobRect =  [0.056666,0.665102, 0.385666, 0.036689];
 
     final issueDateRectyy = [0.43500, 0.168941, 0.053333, 0.335324];
-    final issueDateRect = [0.43500, 0.168941, 0.053333, 0.171075];
-    final issueDateRecte = [0.43500, 0.34982, 0.053333, 0.154863];
-    final fanNumberRect = [0.12233, 0.805034, 0.24300, 0.0460194];
+     final fanNumberRect = [0.12233, 0.805034, 0.24300, 0.0460194];
     final nationalityRectEn = [0.62200, 0.7329, 0.1706, 0.034129];
     final nationalityRectAm = [0.5440, 0.7329, 0.073333, 0.034515];
     final sexRect = [0.056666,0.71629, 0.385666, 0.03412];
@@ -327,7 +306,7 @@ class PdfProcessor {
     final weRect = [0.5453333, 0.92660, 0.45166, 0.034129];
 
     final realphotoRect = [0.14000, 0.14078, 0.2433, 0.39249];
-    final finnRect = [0.8100, 0.6420 , 0.14400, 0.045648];
+    final finnRect = [0.8120, 0.6420 , 0.14400, 0.045648];
     final qrcodeRect = [0.549333, 0.115187, 0.398666, 0.504266];
     final barcodeRect = [0.143333, 0.85324, 0.19166, 0.0533327];
     final phoneRect = [0.54800, 0.6646, 0.15333, 0.031569];
@@ -420,6 +399,7 @@ class PdfProcessor {
             .toList();
       }
 
+
       final parsedDatesIssue = _extractAllDatees(cleanedText);
 
       if (parsedDatesIssue.length >= 2) {
@@ -438,7 +418,9 @@ class PdfProcessor {
 
       output.sex = _formatGenderText(rawSexText);
       final fanNumberCrop = cropFromDecoded(decodedPage, fanNumberRect[0], fanNumberRect[1], fanNumberRect[2], fanNumberRect[3]);
-      final enhanced = await preprocessForNumbers(fanNumberCrop);
+      final decodedFanCrop = img.decodeImage(fanNumberCrop);
+      final processedIssueCropFanCrop = preprocessForOCR(decodedFanCrop!);
+      //saveImageToGallery(processedIssueCropFanCrop, 'khattabbb');
       output.fanNumber = await englishOcr.extractEnglishText(fanNumberCrop);
       final expiryCrop = cropFromDecoded(decodedPage, expiryRect[0], expiryRect[1], expiryRect[2], expiryRect[3]);
       String rawExpiryText = (await ocrService.recognizeTextFromBytes(expiryCrop)).trim();
@@ -534,8 +516,8 @@ class PdfProcessor {
 
 
 
-      final processedPhotoBytes = await ImageUtils.removeBackgroundUint8(finalFaceCrop);
-      final rprocessedPhotoBytes = await ImageUtils.removeBackgroundUint8(realphotoCrop);
+      final processedPhotoBytes = await ImageUtils.removeBackgroundUint8(finalFaceCrop,convertToGrayscale: false);
+      final rprocessedPhotoBytes = await ImageUtils.removeBackgroundUint8(realphotoCrop,convertToGrayscale: false);
 
       final hasTransparency = await ImageUtils.verifyTransparency(processedPhotoBytes);
 
@@ -623,6 +605,26 @@ class PdfProcessor {
     }
 
     return cleaned;
+  }
+
+  Uint8List preprocessForOCR(img.Image image) {
+    img.Image gray = img.grayscale(image);
+    gray = img.adjustColor(gray, contrast: 2.0);
+    gray = img.copyResize(gray, width: gray.width * 2, height: gray.height * 2);
+
+    const int threshold = 140;
+    for (int y = 0; y < gray.height; y++) {
+      for (int x = 0; x < gray.width; x++) {
+        final pixel = gray.getPixel(x, y);
+        final luminance = img.getLuminance(pixel);
+        if (luminance < threshold) {
+          gray.setPixelRgba(x, y, 0, 0, 0, 255);
+        } else {
+          gray.setPixelRgba(x, y, 255, 255, 255, 255);
+        }
+      }
+    }
+    return Uint8List.fromList(img.encodePng(gray));
   }
 
   String _extractExpiryDates(String rawText) {

@@ -2,6 +2,7 @@
 class EthiopiaLocationData {
 
   static final List<String> country = ['ኢትዮጲያ'];
+  static final List<String> countryen = ['Ethiopia'];
 
   static final Map<String, Map<String, List<String>>> amregions = {
     // አዲስ አበባ (Addis Ababa)
@@ -305,6 +306,26 @@ class EthiopiaLocationData {
     return amregions[region]?[city] ?? [];
   }
 
+  // Add these to your EthiopiaLocationData class
+  static List<String> getAllSubcities() {
+    List<String> allSubcities = [];
+    regions.forEach((region, cities) {
+      cities.forEach((city, subcities) {
+        allSubcities.addAll(subcities);
+      });
+    });
+    return allSubcities.toSet().toList();
+  }
+
+  static List<String> getAllAmharicSubcities() {
+    List<String> allSubcities = [];
+    amregions.forEach((region, cities) {
+      cities.forEach((city, subcities) {
+        allSubcities.addAll(subcities);
+      });
+    });
+    return allSubcities.toSet().toList();
+  }
   // Additional helper methods
   static List<String> getAllCities() {
     List<String> allCities = [];

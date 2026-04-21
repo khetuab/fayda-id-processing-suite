@@ -4,11 +4,9 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:get/get.dart';
-import 'package:get/get_core/src/get_main.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:idmaf/new/services/controller.dart';
 import '../models/id_card_model.dart';
-import '../services/bc_service.dart';
 import '../services/card_number_util.dart';
 import '../services/image_utils.dart';
 import '../services/white_background_controller.dart';
@@ -34,7 +32,53 @@ class HorizontalIDTemplate extends StatefulWidget {
 
 class _HorizontalIDTemplateState extends State<HorizontalIDTemplate> {
 
+
   final WhiteBackgroundController bgController = Get.find<WhiteBackgroundController>();
+  Uint8List? _displayPhotoBytes;
+  bool _isProcessingPhoto = false;
+  @override
+  void initState() {
+    super.initState();
+    _processPhotoForDisplay();
+  }
+
+  @override
+  void didUpdateWidget(HorizontalIDTemplate oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.idData.processedPhotoBytes != oldWidget.idData.processedPhotoBytes) {
+      _processPhotoForDisplay();
+    }
+  }
+
+  Future<void> _processPhotoForDisplay() async {
+    if (widget.idData.processedPhotoBytes == null) return;
+
+    setState(() {
+      _isProcessingPhoto = true;
+    });
+
+    try {
+      final processed = await ImageUtils.removeBackgroundUint8(
+        widget.idData.processedPhotoBytes!,
+        convertToGrayscale: false,
+      );
+
+      if (mounted) {
+        setState(() {
+          _displayPhotoBytes = processed;
+          _isProcessingPhoto = false;
+        });
+      }
+    } catch (e) {
+      print('Error processing photo: $e');
+      if (mounted) {
+        setState(() {
+          _displayPhotoBytes = widget.idData.processedPhotoBytes;
+          _isProcessingPhoto = false;
+        });
+      }
+    }
+  }
   String generateSerialNumber() {
     final random = Random();
     const digits = '123456789';
@@ -75,12 +119,11 @@ class _HorizontalIDTemplateState extends State<HorizontalIDTemplate> {
           child: SmartCropWidget(
             imageBytes: imageBytes!,
             onCropped: (croppedBytes) async {
-              // Remove background asynchronously
               setState(() {
                 widget.idData.processedPhotoBytes = croppedBytes;
+                _displayPhotoBytes = croppedBytes; // ✅ FIX HERE
               });
 
-              // Optionally save to file
               if (widget.idData.photoPath != null) {
                 final newPath = widget.idData.photoPath!.replaceAll('.jpg', '_cropped.jpg');
                 await File(newPath).writeAsBytes(croppedBytes);
@@ -112,6 +155,7 @@ class _HorizontalIDTemplateState extends State<HorizontalIDTemplate> {
       });
     }
   }
+
   @override
   Widget build(BuildContext context) {
     final controller = FormController.instance;
@@ -294,14 +338,43 @@ class _HorizontalIDTemplateState extends State<HorizontalIDTemplate> {
           child: widget.idData.processedPhotoBytes != null
               ? GestureDetector(
             onDoubleTap: _cropImage,
-                child: Image.memory(
-                            widget.idData.processedPhotoBytes!,
-                            width: 100,
-                            height: 125,
-                            fit: BoxFit.cover,
+            child: Obx(() {
+              if (_isProcessingPhoto) {
+                return Container(
+                  width: 100,
+                  height: 125,
+                  color: Colors.grey.shade200,
+                  child: const Center(
+                    child: SizedBox(
+                      width: 30,
+                      height: 30,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                  ),
+                );
+              }
 
-                          ),
-              )
+              return ColorFiltered(
+                colorFilter: bgController.isGrayscale.value
+                    ? const ColorFilter.matrix([
+                  0.2126, 0.7152, 0.0722, 0, 0,
+                  0.2126, 0.7152, 0.0722, 0, 0,
+                  0.2126, 0.7152, 0.0722, 0, 0,
+                  0, 0, 0, 1, 0,
+                ])
+                    : const ColorFilter.mode(Colors.transparent, BlendMode.color),
+                child: Opacity(
+                  opacity: 1,
+                  child: Image.memory(
+                    _displayPhotoBytes ?? widget.idData.processedPhotoBytes!,
+                    width: 100,
+                    height: 125,
+                    fit: BoxFit.cover,
+                  ),
+                ),
+              );
+            }),
+          )
               : widget.idData.photoPath != null
               ? Image.file(
             File(widget.idData.photoPath!),
@@ -311,23 +384,29 @@ class _HorizontalIDTemplateState extends State<HorizontalIDTemplate> {
           )
               : _buildPhotoPlaceholder(),
         ),
-
-
         Positioned(
           right: 30,
           bottom: 25,
           child: widget.idData.processedPhotoBytes != null
-              ? Obx(
-                () => Opacity(
-              opacity: bgController.photoOpacity.value, // reactive only here
+              ? Obx(() => ColorFiltered(
+            colorFilter: bgController.isGrayscale.value
+                ? const ColorFilter.matrix([
+              0.2126, 0.7152, 0.0722, 0, 0,
+              0.2126, 0.7152, 0.0722, 0, 0,
+              0.2126, 0.7152, 0.0722, 0, 0,
+              0, 0, 0, 1, 0,
+            ])
+                : const ColorFilter.mode(Colors.transparent, BlendMode.color),
+            child: Opacity(
+              opacity: bgController.photoOpacity.value,
               child: Image.memory(
                 widget.idData.processedPhotoBytes!,
                 width: 38,
                 height: 45,
-                fit: BoxFit.contain,
+                fit: BoxFit.fill,
               ),
             ),
-          )
+          ))
               : widget.idData.photoPath != null
               ? Image.file(
             File(widget.idData.photoPath!),
@@ -610,7 +689,7 @@ class _HorizontalIDTemplateState extends State<HorizontalIDTemplate> {
               Text(
                 "${(widget.formData['amCountry']?.isNotEmpty == true)
                     ? widget.formData['amCountry']!
-                    : (widget.idData.nationalityAmharic ?? '')} | ${_extractNationality(widget.idData.nationalityEnglish ?? '')}",
+                    : (widget.idData.nationalityAmharic ?? '')} | ${(widget.formData['enCountry']?.isNotEmpty == true)?widget.formData['enCountry']!: _extractNationality(widget.idData.nationalityEnglish ?? '')}",
                 style: GoogleFonts.notoSansEthiopic(
                   color: Color(0xff000000),
                   fontSize: 9,
@@ -657,7 +736,7 @@ class _HorizontalIDTemplateState extends State<HorizontalIDTemplate> {
               Text(
                 (widget.formData['amCity']?.isNotEmpty == true)
                     ? widget.formData['amCity']!
-                    : (widget.idData.zoneAm ?? ''),
+                    : ("ጉራጌ ዞን" ?? ''),
                 style: GoogleFonts.notoSansEthiopic(
                   color: Color(0xff000000),
                   fontSize: 8.5,
