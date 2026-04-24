@@ -7,6 +7,7 @@ import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:idmaf/new/services/controller.dart';
 import '../models/id_card_model.dart';
+import '../services/background_template_controller.dart';
 import '../services/card_number_util.dart';
 import '../services/image_utils.dart';
 import '../services/white_background_controller.dart';
@@ -34,6 +35,8 @@ class _HorizontalIDTemplateState extends State<HorizontalIDTemplate> {
 
 
   final WhiteBackgroundController bgController = Get.find<WhiteBackgroundController>();
+  final BackgroundTemplateController templateController = Get.find<BackgroundTemplateController>();
+
   Uint8List? _displayPhotoBytes;
   bool _isProcessingPhoto = false;
   @override
@@ -215,31 +218,33 @@ class _HorizontalIDTemplateState extends State<HorizontalIDTemplate> {
           ),
         ),
 
-        Positioned(
-          left: 0,
-          top: 0,
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              // Ethiopian Flag Image
-              Opacity(
-                opacity:0.9,
-                child: Container(
+        // Positioned(
+        //   left: 0,
+        //   top: 0,
+        //   child: Column(
+        //     mainAxisAlignment: MainAxisAlignment.center,
+        //     children: [
+        //       // Ethiopian Flag Image
+        //       Opacity(
+        //         opacity:0.9,
+        //         child: Container(
+        //
+        //           width: 321.6,
+        //           height: 201,
+        //           decoration: BoxDecoration(
+        //             borderRadius: BorderRadius.circular(1),
+        //             image: const DecorationImage(
+        //               image: AssetImage('assets/bbb.jpg'),
+        //               fit: BoxFit.cover,
+        //             ),
+        //           ),
+        //         ),
+        //       ),
+        //     ],
+        //   ),
+        // ),
 
-                  width: 321.6,
-                  height: 201,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(1),
-                    image: const DecorationImage(
-                      image: AssetImage('assets/bbb.jpg'),
-                      fit: BoxFit.cover,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
+        _buildFrontBackground(),
 
         Positioned(
           left: 16,
@@ -614,31 +619,33 @@ class _HorizontalIDTemplateState extends State<HorizontalIDTemplate> {
             ),
           ),
         ),
-        Positioned(
-          left: 0,
-          top: 0,
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              // Ethiopian Flag Image
-              Opacity(
-                opacity:0.9,
-                child: Container(
+        // Positioned(
+        //   left: 0,
+        //   top: 0,
+        //   child: Column(
+        //     mainAxisAlignment: MainAxisAlignment.center,
+        //     children: [
+        //       // Ethiopian Flag Image
+        //       Opacity(
+        //         opacity:0.9,
+        //         child: Container(
+        //
+        //           width: 321.6,
+        //           height: 201,
+        //           decoration: BoxDecoration(
+        //             borderRadius: BorderRadius.circular(1),
+        //             image: const DecorationImage(
+        //               image: AssetImage('assets/bbbbb.jpg'),
+        //               fit: BoxFit.cover,
+        //             ),
+        //           ),
+        //         ),
+        //       ),
+        //     ],
+        //   ),
+        // ),
 
-                  width: 321.6,
-                  height: 201,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(1),
-                    image: const DecorationImage(
-                      image: AssetImage('assets/bbbbb.jpg'),
-                      fit: BoxFit.cover,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
+        _buildBackBackground(),
         Positioned(
           left: 8,
           top: 10,
@@ -882,6 +889,73 @@ class _HorizontalIDTemplateState extends State<HorizontalIDTemplate> {
         ),
       ],
     );
+  }
+
+  Widget _buildFrontBackground() {
+    return Obx(() {
+      final bgImage = templateController.getCurrentFrontBackground();
+      if (bgImage.isEmpty || !templateController.showBackground.value) {
+        return const SizedBox.shrink();
+      }
+
+      return Positioned(
+        left: 0,
+        top: 0,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Opacity(
+              opacity: templateController.backgroundOpacity.value,
+              child: Container(
+                width: 321.6,
+                height: 201,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(1),
+                  image: DecorationImage(
+                    image: AssetImage(bgImage),
+                    fit: BoxFit.cover,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    });
+  }
+
+// Update the back side background section - Replace the Positioned widget at the top
+  Widget _buildBackBackground() {
+    return Obx(() {
+      final bgImage = templateController.getCurrentBackBackground();
+      if (bgImage.isEmpty || !templateController.showBackground.value) {
+        return const SizedBox.shrink();
+      }
+
+      return Positioned(
+        left: 0,
+        top: 0,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Opacity(
+              opacity: templateController.backgroundOpacity.value,
+              child: Container(
+                width: 321.6,
+                height: 201,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(1),
+                  image: DecorationImage(
+                    image: AssetImage(bgImage),
+                    fit: BoxFit.cover,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    });
   }
 
   Widget _buildInfoField({

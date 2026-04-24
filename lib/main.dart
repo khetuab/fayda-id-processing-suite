@@ -5,7 +5,9 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'new/services/background_template_controller.dart';
 import 'new/services/white_background_controller.dart';
+import 'new/widgets/background_template_selector.dart';
 import 'new/widgets/form_page.dart';
 import 'new/models/id_card_model.dart';
 import 'new/services/barcode_service.dart';
@@ -22,6 +24,7 @@ import 'new/widgets/the_new_page.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   Get.put(WhiteBackgroundController());
+  Get.put(BackgroundTemplateController());
   await TesseractAmharicOCR.initialize();
   if (!kIsWeb) {
     await FilePicker.platform.clearTemporaryFiles();
@@ -340,6 +343,9 @@ class _HomePageState extends State<HomePage> {
 
             // Results Section (if data exists)
             if (_model != null) _buildResultsCard(context),
+            const SizedBox(height: 32),
+            const BackgroundTemplateSelector(),
+            const SizedBox(height: 32),
           ],
         ),
       ),
